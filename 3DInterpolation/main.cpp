@@ -1,4 +1,3 @@
-
 #include "volume.h"
 #include "spline.h"
 
@@ -23,6 +22,7 @@ int scale(Volume<real> *vc, Volume<real> *vo){
         }
     }
 
+	return 0;
 }
 
 int main(){
@@ -43,4 +43,4 @@ int main(){
     delete vo;
 
     return 0;
-}
+};
