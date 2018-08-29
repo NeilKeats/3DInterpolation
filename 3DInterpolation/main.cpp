@@ -12,7 +12,7 @@ int scale(Volume<real> *vc, Volume<real> *vo){
 
     real x,y,z;
 
-#pragma omp parallel for schedule(dynamic) num_threads(4)
+#pragma omp parallel for schedule(dynamic) num_threads(19)
     for(int k=0; k<depth; ++k){
         z = real(k)/real(depth-1) * real(vc->VolDepth-1);
         for(int j=0; j<height; ++j){
@@ -34,11 +34,11 @@ int main(){
     vc = new Volume<float>;
     vo = new Volume<float>;
 
-    vr->ReadFromDisk("D:\\Projects\\SIFT&DVC\\SIFT_DATA\\Voxel_512_ori_GN.bin");
+    vr->ReadFromDisk("D:\\SIFT_EXPERI_DATA\\Voxel_512_ori_GN.bin");
     vc->Init(vr->VolWidth,vr->VolHeight,vr->VolDepth);
     Prefilter(vr,vc);
     scale(vc,vo);
-    vo->WriteToDisk("D:\\Projects\\SIFT&DVC\\SIFT_DATA\\Voxel_512_ori_GN_INTE.bin");
+    vo->WriteToDisk("D:\\SIFT_EXPERI_DATA\\Voxel_512_ori_GN_INTE.bin");
 
     delete vr;
     delete vc;

@@ -63,7 +63,7 @@ real interpolation(real *VCoeffi, const int Width ,const int Height, const int D
 //definition
 template <class real>
 int FIR_1D(real *Vinput, real *Voutput, const int length, const int num) {
-#pragma omp parallel for schedule(dynamic) num_threads(4)
+#pragma omp parallel for schedule(dynamic) num_threads(19)
 	for (int i = 0; i<num; ++i) {
 		real *base = Vinput + i*length;
 		for (int j = 7; j<length - 7; ++j) {
