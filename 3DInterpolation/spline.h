@@ -5,8 +5,12 @@
 #include <math.h>
 #include <omp.h>
 
-#define MIN(x,y) ( ((x)<(y)) ? (x):(y) )
-#define MAX(x,y) ( ((x)>(y)) ? (x):(y) )
+#define MIN(x,y) 	( ((x)<(y)) ? (x):(y) )
+#define MAX(x,y) 	( ((x)>(y)) ? (x):(y) )
+//mirror boundary
+#define LEFT_B(x) 		( ((x)<(0)) ? (-(x)):(x) )
+#define RIGHT_B(x,y) 	( ((x)>(y)) ? (2*(y)-(x)):(x) )
+
 #define ELT(height,width,x,y,z) ((((long)z)*((long)height)+((long)y))*((long)width)+(long)x)
 
 static const float BSplinePreFilter[8] = {
@@ -63,7 +67,7 @@ real interpolation(real *VCoeffi, const int Width ,const int Height, const int D
 //definition
 template <class real>
 int FIR_1D(real *Vinput, real *Voutput, const int length, const int num) {
-#pragma omp parallel for schedule(dynamic) num_threads(19)
+#pragma omp parallel for schedule(static,256) num_threads(19)
 	for (int i = 0; i<num; ++i) {
 		real *base = Vinput + i*length;
 		for (int j = 7; j<length - 7; ++j) {
@@ -78,7 +82,9 @@ int FIR_1D(real *Vinput, real *Voutput, const int length, const int num) {
 				BSplinePreFilter[0] * (base[j]);
 		}
 
+		
 		for (int j = 0; j<7; ++j) {
+			/*
 			Voutput[i*length + j] =
 				BSplinePreFilter[7] * (base[MAX(j - 7, 0)] + base[j + 7]) +
 				BSplinePreFilter[6] * (base[MAX(j - 6, 0)] + base[j + 6]) +
@@ -88,9 +94,23 @@ int FIR_1D(real *Vinput, real *Voutput, const int length, const int num) {
 				BSplinePreFilter[2] * (base[MAX(j - 2, 0)] + base[j + 2]) +
 				BSplinePreFilter[1] * (base[MAX(j - 1, 0)] + base[j + 1]) +
 				BSplinePreFilter[0] * (base[j]);
+			*/
+
+			//using left mirror boundary 
+			Voutput[i*length + j] =
+				BSplinePreFilter[7] * (base[LEFT_B(j - 7)] + base[j + 7]) +
+				BSplinePreFilter[6] * (base[LEFT_B(j - 6)] + base[j + 6]) +
+				BSplinePreFilter[5] * (base[LEFT_B(j - 5)] + base[j + 5]) +
+				BSplinePreFilter[4] * (base[LEFT_B(j - 4)] + base[j + 4]) +
+				BSplinePreFilter[3] * (base[LEFT_B(j - 3)] + base[j + 3]) +
+				BSplinePreFilter[2] * (base[LEFT_B(j - 2)] + base[j + 2]) +
+				BSplinePreFilter[1] * (base[LEFT_B(j - 1)] + base[j + 1]) +
+				BSplinePreFilter[0] * (base[j]);
+			
 		}
 
 		for (int j = length - 7; j<length; ++j) {
+			/*
 			Voutput[i*length + j] =
 				BSplinePreFilter[7] * (base[j - 7] + base[MIN(j + 7, length - 1)]) +
 				BSplinePreFilter[6] * (base[j - 6] + base[MIN(j + 6, length - 1)]) +
@@ -100,7 +120,18 @@ int FIR_1D(real *Vinput, real *Voutput, const int length, const int num) {
 				BSplinePreFilter[2] * (base[j - 2] + base[MIN(j + 2, length - 1)]) +
 				BSplinePreFilter[1] * (base[j - 1] + base[MIN(j + 1, length - 1)]) +
 				BSplinePreFilter[0] * (base[j]);
+			*/
 
+			//using right mirror boundary 
+			Voutput[i*length + j] =
+				BSplinePreFilter[7] * (base[j - 7] + base[RIGHT_B(j + 7, length - 1)]) +
+				BSplinePreFilter[6] * (base[j - 6] + base[RIGHT_B(j + 6, length - 1)]) +
+				BSplinePreFilter[5] * (base[j - 5] + base[RIGHT_B(j + 5, length - 1)]) +
+				BSplinePreFilter[4] * (base[j - 4] + base[RIGHT_B(j + 4, length - 1)]) +
+				BSplinePreFilter[3] * (base[j - 3] + base[RIGHT_B(j + 3, length - 1)]) +
+				BSplinePreFilter[2] * (base[j - 2] + base[RIGHT_B(j + 2, length - 1)]) +
+				BSplinePreFilter[1] * (base[j - 1] + base[RIGHT_B(j + 1, length - 1)]) +
+				BSplinePreFilter[0] * (base[j]);
 		}
 	}
 	return 0;
@@ -172,11 +203,37 @@ inline real interpolation(real *VCoeffi, const int Width, const int Height, cons
 	for (int j = 0; j<4; ++j) {
 		//y
 		for (int i = 0; i<4; ++i) {
+
+			/*
 			sum_x[i] =
 				w_x[0] * VCoeffi[ELT(Height, Width, MIN(MAX(ix - 1, 0), Width - 1), MIN(MAX(iy - 1 + i, 0), Height - 1), MIN(MAX(iz - 1 + j, 0), Depth - 1))]
 				+ w_x[1] * VCoeffi[ELT(Height, Width, MIN(MAX(ix, 0), Width - 1), MIN(MAX(iy - 1 + i, 0), Height - 1), MIN(MAX(iz - 1 + j, 0), Depth - 1))]
 				+ w_x[2] * VCoeffi[ELT(Height, Width, MIN(MAX(ix + 1, 0), Width - 1), MIN(MAX(iy - 1 + i, 0), Height - 1), MIN(MAX(iz - 1 + j, 0), Depth - 1))]
 				+ w_x[3] * VCoeffi[ELT(Height, Width, MIN(MAX(ix + 2, 0), Width - 1), MIN(MAX(iy - 1 + i, 0), Height - 1), MIN(MAX(iz - 1 + j, 0), Depth - 1))];
+			*/
+
+			//using mirror boundary
+			sum_x[i] =
+				//weight * Coefficient
+				w_x[0] * VCoeffi[ELT(Height, Width,
+				//x of Coefficient
+				//y of Coefficient
+				//z of Coefficient
+					RIGHT_B(LEFT_B(ix - 1)		, Width - 1), 
+					RIGHT_B(LEFT_B(iy - 1 + i)	, Height - 1), 
+					RIGHT_B(LEFT_B(iz - 1 + j)	, Depth - 1))]
+				+ w_x[1] * VCoeffi[ELT(Height, Width, 
+					RIGHT_B(LEFT_B(ix)			, Width - 1), 
+					RIGHT_B(LEFT_B(iy - 1 + i)	, Height - 1), 
+					RIGHT_B(LEFT_B(iz - 1 + j)	, Depth - 1))]
+				+ w_x[2] * VCoeffi[ELT(Height, Width, 
+					RIGHT_B(LEFT_B(ix + 1)		, Width - 1), 
+					RIGHT_B(LEFT_B(iy - 1 + i)	, Height - 1), 
+					RIGHT_B(LEFT_B(iz - 1 + j)	, Depth - 1))]
+				+ w_x[3] * VCoeffi[ELT(Height, Width, 
+					RIGHT_B(LEFT_B(ix + 2)		, Width - 1), 
+					RIGHT_B(LEFT_B(iy - 1 + i)	, Height - 1), 
+					RIGHT_B(LEFT_B(iz - 1 + j)	, Depth - 1))];
 
 		}
 		sum_y[j] =
